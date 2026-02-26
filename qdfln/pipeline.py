@@ -1,4 +1,5 @@
 from typing import List, Dict
+import sys
 
 import torch
 
@@ -6,6 +7,12 @@ from .models import create_global_model
 from .client import Client
 from .validator import Validator
 from .blockchain import BlockchainSim
+from .crypto_utils import (
+    pqc_kem_generate_keypair,
+    pqc_kem_encapsulate,
+    pqc_kem_decapsulate,
+    derive_fernet_key,
+)
 
 
 def _build_clients(input_dim: int) -> List[Client]:
@@ -23,7 +30,30 @@ def _build_clients(input_dim: int) -> List[Client]:
     ]
 
 
+def _supports_emoji() -> bool:
+    enc = sys.stdout.encoding or ""
+    return "UTF" in enc.upper()
+
+
+if _supports_emoji():
+    EMOJI_OK = "✅"
+    EMOJI_WARN = "⚠️"
+    EMOJI_VAL = "🛡️"
+    EMOJI_PQC = "🔐"
+else:
+    EMOJI_OK = "[OK]"
+    EMOJI_WARN = "[!]"
+    EMOJI_VAL = "[VAL]"
+    EMOJI_PQC = "[PQC]"
+
+
 def run_round():
+    print("\n==================================================")
+    print("        PQC-SECURED DFLN TRAINING ROUND")
+    print("==================================================")
+    print(f"{EMOJI_PQC} KEM: ML-KEM-512  |  Signatures: SPHINCS+-SHAKE-256s")
+    print(f"{EMOJI_PQC} Symmetric encryption: Fernet(AES) derived from KEM shared secrets\n")
+
     input_dim = 2
     global_model = create_global_model(input_dim)
 
@@ -39,12 +69,26 @@ def run_round():
     grad_dim = test_grad.numel()
 
     validators = [Validator("V1", grad_dim), Validator("V2", grad_dim), Validator("V3", grad_dim)]
-    v_ids = [v.id for v in validators]
+
+    print("========== PQC KEM HANDSHAKE (CLIENTS <-> VALIDATORS) ==========\n")
+    # PQC KEM handshake: each validator gets a KEM keypair,
+    # each client derives a shared secret with every validator.
+    kem_keys: Dict[str, Dict[str, bytes]] = {}
+    for v in validators:
+        pk, sk = pqc_kem_generate_keypair()
+        kem_keys[v.id] = {"pk": pk, "sk": sk}
 
     for c in clients:
-        c.simulate_qkd_with_validators(v_ids)
         for v in validators:
-            v.set_qkd_key_for_client(c.id, c.qkd_keys[v.id])
+            ct, shared_client = pqc_kem_encapsulate(kem_keys[v.id]["pk"])
+            shared_validator = pqc_kem_decapsulate(ct, kem_keys[v.id]["sk"])
+
+            key_client = derive_fernet_key(shared_client)
+            key_validator = derive_fernet_key(shared_validator)
+
+            c.set_symmetric_key_for_validator(v.id, key_client)
+            v.set_qkd_key_for_client(c.id, key_validator)
+        print(f"{EMOJI_PQC} Client {c.id} established PQC keys with validators {[v.id for v in validators]}")
 
     client_grads: Dict[str, torch.Tensor] = {}
     print("\n========== CLIENT LOCAL TRAINING ==========\n")
@@ -52,9 +96,9 @@ def run_round():
         g_vec = c.local_train_and_compute_gradient()
         if c.id == malicious_client_id:
             g_vec = g_vec * 50.0
-            print(f"⚠️  Client {c.id} is malicious: sending scaled gradient (||g||={torch.norm(g_vec):.2f})")
+            print(f"{EMOJI_WARN} Client {c.id} is malicious: sending scaled gradient (||g||={torch.norm(g_vec):.2f})")
         else:
-            print(f"✅ Client {c.id}: ||g||={torch.norm(g_vec):.2f}")
+            print(f"{EMOJI_OK} Client {c.id}: ||g||={torch.norm(g_vec):.2f}")
         client_grads[c.id] = g_vec
 
     all_packets_for_validator: Dict[str, List[Dict]] = {v.id: [] for v in validators}
@@ -76,18 +120,18 @@ def run_round():
         G_for_hash = -G_t if is_malicious_validator else G_t
         H_agg = v.compute_H_agg(G_for_hash)
         label = " (malicious)" if is_malicious_validator else ""
-        print(f"🛡️  Validator {v.id}{label}: ||G_t|| = {torch.norm(G_t):.4f} | H_agg = {H_agg[:10]}...")
+        print(f"{EMOJI_VAL} Validator {v.id}{label}: ||G_t|| = {torch.norm(G_t):.4f} | H_agg = {H_agg[:10]}...")
         bc.submit_hash(round_id, v.id, H_agg)
 
     result = bc.check_consensus_and_update(round_id)
     if result:
         H_star, votes, entries = result
         print("\n========== BLOCKCHAIN CONSENSUS ==========\n")
-        print(f"✅ Consensus on H_agg = {H_star[:10]}... with {votes} validator votes\n")
-        print("🔗 Validator hashes:")
+        print(f"{EMOJI_OK} Consensus on H_agg = {H_star[:10]}... with {votes} validator votes\n")
+        print("Validator hashes:")
         for vid, h in entries.items():
             print(f"   - {vid}: {h[:18]}...")
-        print("\n⭐ Validator reputation:")
+        print("\nValidator reputation:")
         for vid, score in bc.reputation.items():
             print(f"   - {vid}: {score}")
     else:

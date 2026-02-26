@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 from cryptography.fernet import Fernet
 
-from .crypto_utils import simulate_qkd_key, hash_bytes
+from .crypto_utils import hash_bytes, pqc_sig_generate_keypair, pqc_sig_sign
 
 
 def flatten_gradients(model: nn.Module) -> torch.Tensor:
@@ -22,6 +22,7 @@ class Client:
         self.y = torch.tensor(y_local, dtype=torch.float32)
         self.model = nn.Linear(input_dim, 1)
         self.qkd_keys: Dict[str, bytes] = {}
+        self.sig_public_key, self.sig_secret_key = pqc_sig_generate_keypair()
         self.mask_vec = torch.randn_like(self.get_param_vector()) * 0.01
 
     def get_param_vector(self) -> torch.Tensor:
@@ -32,9 +33,8 @@ class Client:
         for p_self, p_global in zip(self.model.parameters(), global_model.parameters()):
             p_self.data = p_global.data.clone()
 
-    def simulate_qkd_with_validators(self, validator_ids: List[str]):
-        for vid in validator_ids:
-            self.qkd_keys[vid] = simulate_qkd_key()
+    def set_symmetric_key_for_validator(self, validator_id: str, key: bytes):
+        self.qkd_keys[validator_id] = key
 
     def local_train_and_compute_gradient(self, epochs: int = 1, lr: float = 0.1) -> torch.Tensor:
         optimizer = optim.SGD(self.model.parameters(), lr=lr)
@@ -69,14 +69,15 @@ class Client:
         token = f.encrypt(g_bytes)
 
         h = hash_bytes(g_bytes)
-        signature = hash_bytes(self.id.encode() + g_bytes)
+        signature = pqc_sig_sign(self.sig_secret_key, g_bytes)
 
         return {
             "client_id": self.id,
             "validator_id": validator_id,
             "encrypted_gradient": token.decode("utf-8"),
             "hash": h,
-            "signature": signature,
+            "signature": signature.hex(),
+            "sig_public_key": self.sig_public_key.hex(),
             "length": len(g_bytes),
         }
 

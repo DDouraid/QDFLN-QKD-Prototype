@@ -3,7 +3,7 @@ from typing import Dict, List, Tuple
 import torch
 from cryptography.fernet import Fernet
 
-from .crypto_utils import hash_bytes
+from .crypto_utils import hash_bytes, pqc_sig_verify
 
 
 class Validator:
@@ -17,8 +17,9 @@ class Validator:
         self.qkd_keys_with_clients[client_id] = key
 
     def verify_signature(self, packet: Dict, g_bytes: bytes) -> bool:
-        expected_sig = hash_bytes(packet["client_id"].encode() + g_bytes)
-        return expected_sig == packet["signature"]
+        signature = bytes.fromhex(packet["signature"])
+        public_key = bytes.fromhex(packet["sig_public_key"])
+        return pqc_sig_verify(public_key, g_bytes, signature)
 
     def process_packet(self, packet: Dict) -> bool:
         cid = packet["client_id"]
