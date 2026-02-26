@@ -29,6 +29,9 @@ def run_round():
 
     clients = _build_clients(input_dim)
 
+    malicious_client_id = "C3"
+    malicious_validator_id = "V3"
+
     for c in clients:
         c.load_global_model(global_model)
 
@@ -44,8 +47,14 @@ def run_round():
             v.set_qkd_key_for_client(c.id, c.qkd_keys[v.id])
 
     client_grads: Dict[str, torch.Tensor] = {}
+    print("\n========== CLIENT LOCAL TRAINING ==========\n")
     for c in clients:
         g_vec = c.local_train_and_compute_gradient()
+        if c.id == malicious_client_id:
+            g_vec = g_vec * 50.0
+            print(f"⚠️  Client {c.id} is malicious: sending scaled gradient (||g||={torch.norm(g_vec):.2f})")
+        else:
+            print(f"✅ Client {c.id}: ||g||={torch.norm(g_vec):.2f}")
         client_grads[c.id] = g_vec
 
     all_packets_for_validator: Dict[str, List[Dict]] = {v.id: [] for v in validators}
@@ -63,8 +72,11 @@ def run_round():
         for pkt in all_packets_for_validator[v.id]:
             v.process_packet(pkt)
         G_t = v.aggregate_gradients()
-        H_agg = v.compute_H_agg(G_t)
-        print(f"🛡️  Validator {v.id}: ||G_t|| = {torch.norm(G_t):.4f} | H_agg = {H_agg[:10]}...")
+        is_malicious_validator = v.id == malicious_validator_id
+        G_for_hash = -G_t if is_malicious_validator else G_t
+        H_agg = v.compute_H_agg(G_for_hash)
+        label = " (malicious)" if is_malicious_validator else ""
+        print(f"🛡️  Validator {v.id}{label}: ||G_t|| = {torch.norm(G_t):.4f} | H_agg = {H_agg[:10]}...")
         bc.submit_hash(round_id, v.id, H_agg)
 
     result = bc.check_consensus_and_update(round_id)
