@@ -1,0 +1,62 @@
+Classical DFLN vs QKD-Secured DFLN
+==================================
+
+1. Classical DFLN (Before QKD)
+
+Clients:
+- Train locally and compute gradient g_i.
+- Mask gradient with classical pairwise secrets (secure aggregation).
+- Encrypt masked gradient with a classical AES key.
+- Submit: encrypted gradient + hash + digital signature to validator nodes.
+
+Validator nodes:
+- Decrypt encrypted gradients using classical keys.
+- Aggregate gradients to obtain G_t.
+- Compute aggregated model hash H_agg.
+- Submit H_agg to the blockchain layer.
+
+Blockchain layer:
+- Check consensus of H_agg across validators.
+- If majority agrees, update the global model θ_{t+1}.
+- Allow fraud proofs and apply slashing if there is a mismatch.
+- Update reputation and stakes.
+
+2. QKD-Secured DFLN (After QKD)
+
+Clients:
+- Train locally and compute gradient g_i.
+- Mask gradient using QKD-generated pairwise secrets (s_ij_QKD).
+- Encrypt gradient using a QKD-generated AES key K_QKD.
+- Submit: encrypted gradient + hash + digital signature to validator nodes.
+
+Validator nodes:
+- Decrypt encrypted gradients using QKD-generated keys.
+- Aggregate gradients to obtain G_t.
+- Compute aggregated model hash H_agg.
+- Optionally exchange coordination proofs over QKD-secured channels.
+- Submit H_agg to the blockchain layer.
+
+Blockchain layer:
+- Check consensus of H_agg across validators.
+- If majority agrees, update the global model θ_{t+1}.
+- Allow fraud proofs and apply slashing if there is a mismatch.
+- Update reputation and stakes.
+
+3. Key Security Differences
+
+1) Gradient encryption keys:
+   Classical DFLN: keys generated classically.
+   QKD DFLN: keys generated via QKD (post-quantum secure).
+
+2) Pairwise masking secrets:
+   Classical DFLN: classical random pairwise secrets.
+   QKD DFLN: QKD-generated pairwise secrets.
+
+3) Validator coordination:
+   Classical DFLN: coordination over classical channels.
+   QKD DFLN: coordination over QKD-secured channels.
+
+4) Overall security:
+   Classical DFLN: vulnerable to future quantum attacks on cryptography.
+   QKD DFLN: quantum-secure keys with forward secrecy (eavesdropping is detectable).
+
