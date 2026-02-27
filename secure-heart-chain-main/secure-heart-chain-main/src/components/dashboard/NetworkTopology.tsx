@@ -102,7 +102,7 @@ export function NetworkTopology({
   clients,
   consensusOk,
 }: NetworkTopologyProps) {
-  const dataClients: Client[] = clients && clients.length > 0 ? clients : mockClients;
+  const dataClients: Client[] = clients ?? mockClients;
 
   const activeClientRecords = dataClients.filter((c) => c.status !== "error");
   const activeClientsIds = activeClientRecords.map((c) => c.id);

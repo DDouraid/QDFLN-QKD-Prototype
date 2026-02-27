@@ -21,7 +21,7 @@ interface LogsTerminalProps {
 }
 
 export function LogsTerminal({ logs }: LogsTerminalProps) {
-  const data = logs && logs.length > 0 ? logs : mockLogs;
+  const data = logs ?? mockLogs;
 
   return (
     <div className="gradient-card rounded-lg border border-border p-4">

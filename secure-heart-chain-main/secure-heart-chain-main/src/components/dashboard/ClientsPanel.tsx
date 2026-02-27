@@ -20,7 +20,7 @@ interface ClientsPanelProps {
 }
 
 export function ClientsPanel({ clients }: ClientsPanelProps) {
-  const data = clients && clients.length > 0 ? clients : mockClients;
+  const data = clients ?? mockClients;
 
   return (
     <div className="gradient-card rounded-lg border border-border p-4">

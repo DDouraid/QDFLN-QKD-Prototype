@@ -7,7 +7,7 @@ interface ConsensusTimelineProps {
 }
 
 export function ConsensusTimeline({ rounds }: ConsensusTimelineProps) {
-  const data = rounds && rounds.length > 0 ? rounds : mockConsensusRounds;
+  const data = rounds ?? mockConsensusRounds;
 
   return (
     <div className="gradient-card rounded-lg border border-border p-4">

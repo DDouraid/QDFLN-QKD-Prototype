@@ -110,6 +110,8 @@ const Index = () => {
     mutationFn: runRound,
   });
 
+  const hasData = !!mutation.data;
+
   const clients = useMemo(
     () => mapClients(mutation.data) ?? undefined,
     [mutation.data],
@@ -128,7 +130,7 @@ const Index = () => {
   );
 
   const topologyConsensusOk = useMemo(() => {
-    if (!mutation.data) return true;
+    if (!mutation.data) return false;
     const anyMalicious = mutation.data.clients.some((c) => c.malicious);
     const c = mutation.data.consensus as any;
     const backendOk =
@@ -137,7 +139,18 @@ const Index = () => {
   }, [mutation.data]);
 
   const latestMetrics = useMemo(() => {
-    if (!mutation.data) return mockMetrics;
+    if (!mutation.data) {
+      return {
+        totalRounds: 0,
+        activeClients: 0,
+        activeValidators: 0,
+        consensusRate: 0,
+        avgGradientNorm: 0,
+        pqcKeysExchanged: 0,
+        blocksFinalized: 0,
+        slashEvents: 0,
+      };
+    }
     const c = mutation.data.consensus as any;
     const activeValidators = c?.reputation
       ? Object.keys(c.reputation).length
@@ -229,13 +242,13 @@ const Index = () => {
       <NetworkTopology clients={clients} consensusOk={topologyConsensusOk} />
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <ClientsPanel clients={clients} />
-        <ValidatorsPanel validators={validators} />
+        <ClientsPanel clients={hasData ? clients ?? [] : []} />
+        <ValidatorsPanel validators={hasData ? validators ?? [] : []} />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <ConsensusTimeline rounds={consensusRounds} />
-        <LogsTerminal logs={logs} />
+        <ConsensusTimeline rounds={hasData ? consensusRounds ?? [] : []} />
+        <LogsTerminal logs={hasData ? logs ?? [] : []} />
       </div>
     </div>
   );

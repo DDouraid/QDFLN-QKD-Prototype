@@ -13,7 +13,7 @@ interface ValidatorsPanelProps {
 }
 
 export function ValidatorsPanel({ validators }: ValidatorsPanelProps) {
-  const data = validators && validators.length > 0 ? validators : mockValidators;
+  const data = validators ?? mockValidators;
 
   return (
     <div className="gradient-card rounded-lg border border-border p-4">
