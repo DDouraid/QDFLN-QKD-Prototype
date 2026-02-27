@@ -1,0 +1,119 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 6%;
+    --foreground: 195 100% 92%;
+
+    --card: 222 40% 9%;
+    --card-foreground: 195 60% 85%;
+
+    --popover: 222 40% 9%;
+    --popover-foreground: 195 60% 85%;
+
+    --primary: 185 100% 50%;
+    --primary-foreground: 222 47% 6%;
+
+    --secondary: 222 30% 15%;
+    --secondary-foreground: 195 60% 80%;
+
+    --muted: 222 25% 12%;
+    --muted-foreground: 215 20% 50%;
+
+    --accent: 270 80% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 145 70% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 55%;
+    --warning-foreground: 222 47% 6%;
+
+    --border: 222 30% 18%;
+    --input: 222 30% 15%;
+    --ring: 185 100% 50%;
+
+    --radius: 0.5rem;
+
+    --glow-primary: 0 0 20px hsl(185 100% 50% / 0.3);
+    --glow-accent: 0 0 20px hsl(270 80% 60% / 0.3);
+    --glow-success: 0 0 15px hsl(145 70% 45% / 0.3);
+
+    --sidebar-background: 222 40% 7%;
+    --sidebar-foreground: 195 60% 85%;
+    --sidebar-primary: 185 100% 50%;
+    --sidebar-primary-foreground: 222 47% 6%;
+    --sidebar-accent: 222 30% 15%;
+    --sidebar-accent-foreground: 195 60% 80%;
+    --sidebar-border: 222 30% 18%;
+    --sidebar-ring: 185 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer utilities {
+  .glow-primary {
+    box-shadow: var(--glow-primary);
+  }
+  .glow-accent {
+    box-shadow: var(--glow-accent);
+  }
+  .glow-success {
+    box-shadow: var(--glow-success);
+  }
+  .text-glow {
+    text-shadow: 0 0 10px hsl(185 100% 50% / 0.5);
+  }
+  .border-glow {
+    border-color: hsl(185 100% 50% / 0.3);
+  }
+  .bg-grid {
+    background-image: 
+      linear-gradient(hsl(222 30% 18% / 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(222 30% 18% / 0.5) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .gradient-card {
+    background: linear-gradient(135deg, hsl(222 40% 9%), hsl(222 40% 12%));
+  }
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  .animate-scan-line {
+    animation: scan-line 3s linear infinite;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}

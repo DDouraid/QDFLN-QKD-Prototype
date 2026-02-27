@@ -4,4 +4,5 @@ numpy
 pqcrypto
 fastapi
 uvicorn[standard]
+pandas
 
