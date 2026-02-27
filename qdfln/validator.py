@@ -1,17 +1,36 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import torch
+import torch.nn.functional as F
 from cryptography.fernet import Fernet
 
 from .crypto_utils import hash_bytes, pqc_sig_verify
 
 
 class Validator:
-    def __init__(self, validator_id: str, grad_dim: int):
+    def __init__(
+        self,
+        validator_id: str,
+        grad_dim: int,
+        agg_mode: str = "median",
+        trim_ratio: float = 0.2,
+        norm_threshold: float = 10.0,
+        cos_threshold: float = -0.2,
+        max_suspicion: int = 2,
+    ):
         self.id = validator_id
         self.qkd_keys_with_clients: Dict[str, bytes] = {}
         self.received_gradients: List[Tuple[str, torch.Tensor]] = []
         self.grad_dim = grad_dim
+
+        self.agg_mode = agg_mode
+        self.trim_ratio = trim_ratio
+        self.norm_threshold = norm_threshold
+        self.cos_threshold = cos_threshold
+        self.max_suspicion = max_suspicion
+
+        self.ref_grad: Optional[torch.Tensor] = None
+        self.client_suspicion: Dict[str, int] = {}
 
     def set_qkd_key_for_client(self, client_id: str, key: bytes):
         self.qkd_keys_with_clients[client_id] = key
@@ -45,9 +64,28 @@ class Validator:
             return False
 
         norm = torch.norm(g_tensor).item()
-        if norm > 10.0:
-            print(f"[{self.id}] Anomalous gradient from {cid}: ||g||={norm:.2f}")
+        if norm > self.norm_threshold:
+            print(f"[{self.id}] Norm anomaly from {cid}: ||g||={norm:.2f} > {self.norm_threshold}")
             return False
+
+        if self.ref_grad is not None:
+            cos = F.cosine_similarity(
+                g_tensor.view(1, -1),
+                self.ref_grad.view(1, -1),
+                dim=1,
+            ).item()
+            if cos < self.cos_threshold:
+                prev = self.client_suspicion.get(cid, 0)
+                self.client_suspicion[cid] = prev + 1
+                print(f"[{self.id}] Cosine anomaly from {cid}: cos={cos:.2f}, suspicion={self.client_suspicion[cid]}")
+                if self.client_suspicion[cid] >= self.max_suspicion:
+                    print(f"[{self.id}] Blocking client {cid} due to repeated anomalies")
+                    return False
+
+        if self.ref_grad is None:
+            self.ref_grad = g_tensor.clone()
+        else:
+            self.ref_grad = 0.9 * self.ref_grad + 0.1 * g_tensor
 
         self.received_gradients.append((cid, g_tensor))
         return True
@@ -56,6 +94,19 @@ class Validator:
         if not self.received_gradients:
             return torch.zeros(self.grad_dim)
         stack = torch.stack([g for _, g in self.received_gradients], dim=0)
+
+        if self.agg_mode == "median":
+            return torch.median(stack, dim=0).values
+
+        if self.agg_mode == "trimmed_mean":
+            n = stack.size(0)
+            k = int(self.trim_ratio * n)
+            if k == 0 or n <= 2 * k:
+                return stack.mean(dim=0)
+            sorted_vals, _ = torch.sort(stack, dim=0)
+            trimmed = sorted_vals[k : n - k, :]
+            return trimmed.mean(dim=0)
+
         return stack.mean(dim=0)
 
     def compute_H_agg(self, G_t: torch.Tensor) -> str:

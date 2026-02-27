@@ -2,4 +2,6 @@ torch
 cryptography
 numpy
 pqcrypto
+fastapi
+uvicorn[standard]
 

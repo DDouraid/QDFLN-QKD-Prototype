@@ -8,11 +8,25 @@ from cryptography.fernet import Fernet
 from .crypto_utils import hash_bytes, pqc_sig_generate_keypair, pqc_sig_sign
 
 
+USE_DP = False
+DP_CLIP_NORM = 1.0
+DP_NOISE_STD = 0.05
+
+
 def flatten_gradients(model: nn.Module) -> torch.Tensor:
     grads = []
     for p in model.parameters():
         grads.append(p.grad.view(-1))
     return torch.cat(grads)
+
+
+def apply_dp_noise(g_vec: torch.Tensor) -> torch.Tensor:
+    if DP_CLIP_NORM is not None:
+        norm = torch.norm(g_vec)
+        if norm > DP_CLIP_NORM:
+            g_vec = g_vec * (DP_CLIP_NORM / (norm + 1e-8))
+    noise = torch.normal(0.0, DP_NOISE_STD, size=g_vec.shape)
+    return g_vec + noise
 
 
 class Client:
@@ -52,6 +66,8 @@ class Client:
         loss = loss_fn(logits, self.y)
         loss.backward()
         g_vec = flatten_gradients(self.model)
+        if USE_DP:
+            g_vec = apply_dp_noise(g_vec)
         return g_vec.detach()
 
     def mask_gradient(self, g_vec: torch.Tensor) -> torch.Tensor:
